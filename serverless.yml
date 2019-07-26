@@ -1,0 +1,100 @@
+service: aws-scheduler
+
+provider:
+  name: aws
+  runtime: python3.7
+  stage: dev
+  region: us-east-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:DescribeTable
+        - dynamodb:Query
+        - dynamodb:GetItem
+        - dynamodb:GetShardIterator
+        - dynamodb:PutItem
+        - dynamodb:DeleteItem
+      Resource:
+        - "${self:custom.table.arn}"
+        - "${self:custom.table.index.arn}"
+    - Effect: Allow
+      Action:
+        - SQS:SendMessage
+      Resource: "${self:custom.queue.arn}"
+    - Effect: Allow
+      Action:
+        - dynamodb:*
+      Resource: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-measurement" ] ]  }
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: { "Fn::Join": [":", ["arn:aws:lambda:${self:provider.region}", { "Ref": "AWS::AccountId" }, "function", "${self:custom.scheduleFunction}" ] ]  }
+
+custom:
+  inbound:
+    name: "scheduler-input-${self:provider.stage}"
+    arn: { "Fn::Join": [":", ["arn:aws:sns:${self:provider.region}", { "Ref": "AWS::AccountId" }, "${self:custom.inbound.name}" ] ]  }
+  queue:
+    name: "scheduler-queue-${self:provider.stage}"
+    arn: { "Fn::Join": [":", ["arn:aws:sqs:${self:provider.region}", { "Ref": "AWS::AccountId" }, "${self:custom.queue.name}" ] ]  }
+    url: { "Fn::Join": ["/", ["https://sqs.${self:provider.region}.amazonaws.com", { "Ref": "AWS::AccountId" }, "${self:custom.queue.name}" ] ]  }
+  table:
+    arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events" ] ]  }
+    index:
+      name: "status-date-index"
+      arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events/index/${self:custom.table.index.name}" ] ]  }
+  scheduleFunction: "aws-scheduler-${self:provider.stage}-scheduleBatch"
+  pythonRequirements:
+    pythonBin: python3
+
+functions:
+  consumer:
+    handler: handler.consumer
+    events:
+      - sns:
+          arn:
+            Fn::Join:
+              - ':'
+              - - 'arn:aws:sns'
+                - Ref: 'AWS::Region'
+                - Ref: 'AWS::AccountId'
+                - "${self:custom.inbound.name}"
+          topicName: "${self:custom.inbound.name}"
+    environment:
+      SCHEDULE_FUNCTION: "${self:custom.scheduleFunction}"
+  eventLoader:
+    handler: handler.event_loader
+    events:
+      - schedule: rate(1 minute)
+    environment:
+      SCHEDULE_FUNCTION: "${self:custom.scheduleFunction}"
+      INDEX_NAME: "${self:custom.table.index.name}"
+  scheduler:
+    handler: handler.scheduler
+    environment:
+      QUEUE_URL: "${self:custom.queue.url}"
+    # when we have to wait for DynamoDB autoscaling we may exceed the default of 6s
+    timeout: 30
+  emitter:
+    handler: handler.emitter
+    events:
+      - sqs:
+          arn:
+            Fn::Join:
+              - ':'
+              - - arn
+                - aws
+                - sqs
+                - Ref: AWS::Region
+                - Ref: AWS::AccountId
+                - "${self:custom.queue.name}"
+
+
+# todo: add a safe guard that pulls messages from dead letter queues back into the circuit
+plugins:
+  - serverless-python-requirements
+
+package:
+  exclude:
+    - venv/**
+    - node_modules/**
