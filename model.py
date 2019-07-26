@@ -13,3 +13,4 @@ class EventWrapper(Model):
     event = UnicodeAttribute()
     arn = UnicodeAttribute()
     status = UnicodeAttribute(default='NEW')
+    user = UnicodeAttribute()

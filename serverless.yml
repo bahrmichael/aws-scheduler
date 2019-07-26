@@ -62,6 +62,7 @@ functions:
           topicName: "${self:custom.inbound.name}"
     environment:
       SCHEDULE_FUNCTION: "${self:custom.scheduleFunction}"
+      ENFORCE_USER: true
   eventLoader:
     handler: handler.event_loader
     events:
@@ -89,8 +90,6 @@ functions:
                 - Ref: AWS::AccountId
                 - "${self:custom.queue.name}"
 
-
-# todo: add a safe guard that pulls messages from dead letter queues back into the circuit
 plugins:
   - serverless-python-requirements
 

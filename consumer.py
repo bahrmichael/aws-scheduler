@@ -16,11 +16,24 @@ def handle(events):
     to_be_scheduled = []
     event_wrappers = []
     for event in events:
+        if 'date' not in event or 'event' not in event or 'arn' not in event:
+            # todo: publish to failure queue
+            continue
         event_wrapper = EventWrapper()
         event_wrapper.id = str(uuid4())
         event_wrapper.date = event['date']
-        event_wrapper.event = json.dumps(event['event'])
+        if not isinstance(event['event'], str):
+            # todo: publish to failure queue
+            continue
+        event_wrapper.event = event['event']
         event_wrapper.arn = event['arn']
+        print(os.environ.get('ENFORCE_USER'))
+        if 'user' not in event:
+            if 'true' == os.environ.get('ENFORCE_USER'):
+                # todo: publish to failure queue
+                continue
+        else:
+            event_wrapper.user = event['user']
 
         # if the event has less than 10 minutes until execution, then fast track it
         if has_less_then_ten_minutes(event_wrapper.date):
