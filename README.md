@@ -133,7 +133,8 @@ Based on our tests from the Performance section, we are confident that this stac
 These numbers are not confirmed though, as that volume incurs significant AWS costs.
 
 ## Limitations
-Events may arrive more than once at the output topic.
+- Events may arrive more than once at the output topic.
+- This approach costs more than using DynamoDB's TTL attribute. If delays of 30 minutes to 48 hours are acceptable for you, then check out [this article](https://medium.com/swlh/scheduling-irregular-aws-lambda-executions-through-dynamodb-ttl-attributes-acd397dfbad9). 
 
 ## Contributions
 Contributions are welcome, both issues and code. Get in touch at twitter [@michabahr](https://twitter.com/michabahr) or create an issue.
