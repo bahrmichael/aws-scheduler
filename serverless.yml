@@ -3,8 +3,8 @@ service: aws-scheduler
 provider:
   name: aws
   runtime: python3.7
-  stage: dev
-  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  region: stage: ${opt:region, 'us-east-1'}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -23,10 +23,6 @@ provider:
       Resource: "${self:custom.queue.arn}"
     - Effect: Allow
       Action:
-        - dynamodb:*
-      Resource: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-measurement" ] ]  }
-    - Effect: Allow
-      Action:
         - lambda:InvokeFunction
       Resource: { "Fn::Join": [":", ["arn:aws:lambda:${self:provider.region}", { "Ref": "AWS::AccountId" }, "function", "${self:custom.scheduleFunction}" ] ]  }
 
@@ -39,11 +35,11 @@ custom:
     arn: { "Fn::Join": [":", ["arn:aws:sqs:${self:provider.region}", { "Ref": "AWS::AccountId" }, "${self:custom.queue.name}" ] ]  }
     url: { "Fn::Join": ["/", ["https://sqs.${self:provider.region}.amazonaws.com", { "Ref": "AWS::AccountId" }, "${self:custom.queue.name}" ] ]  }
   table:
-    arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events" ] ]  }
+    arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events-${self:provider.stage}" ] ]  }
     index:
       name: "status-date-index"
-      arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events/index/${self:custom.table.index.name}" ] ]  }
-  scheduleFunction: "aws-scheduler-${self:provider.stage}-scheduleBatch"
+      arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events-${self:provider.stage}/index/${self:custom.table.index.name}" ] ]  }
+  scheduleFunction: "aws-scheduler-${self:provider.stage}-scheduler"
   pythonRequirements:
     pythonBin: python3
 
@@ -62,7 +58,7 @@ functions:
           topicName: "${self:custom.inbound.name}"
     environment:
       SCHEDULE_FUNCTION: "${self:custom.scheduleFunction}"
-      ENFORCE_USER: true
+      ENFORCE_USER: false
   eventLoader:
     handler: handler.event_loader
     events:
