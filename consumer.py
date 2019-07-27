@@ -10,7 +10,12 @@ from db_helper import save_with_retry
 from model import EventWrapper
 from util import make_chunks
 
+# todo: move into lambda client
 lambda_client = boto3.client('lambda')
+
+
+def publish_to_failure_topic(event):
+    print('Event failed: %s' % event)
 
 
 def handle(events):
@@ -19,20 +24,19 @@ def handle(events):
     for event in events:
         print(event)
         if 'date' not in event or 'payload' not in event or 'target' not in event:
-            # todo: publish to failure queue
+            publish_to_failure_topic(event)
             continue
         event_wrapper = EventWrapper()
         event_wrapper.id = str(uuid4())
         event_wrapper.date = event['date']
         if not isinstance(event['payload'], str):
-            # todo: publish to failure queue
+            publish_to_failure_topic(event)
             continue
         event_wrapper.payload = event['payload']
         event_wrapper.target = event['target']
-        print(os.environ.get('ENFORCE_USER'))
         if 'user' not in event:
             if 'true' == os.environ.get('ENFORCE_USER'):
-                # todo: publish to failure queue
+                publish_to_failure_topic(event)
                 continue
         else:
             event_wrapper.user = event['user']

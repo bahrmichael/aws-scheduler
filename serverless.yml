@@ -4,7 +4,7 @@ provider:
   name: aws
   runtime: python3.7
   stage: ${opt:stage, 'dev'}
-  region: stage: ${opt:region, 'us-east-1'}
+  region: ${opt:region, 'us-east-1'}
   iamRoleStatements:
     - Effect: Allow
       Action:

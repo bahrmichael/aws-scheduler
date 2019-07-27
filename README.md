@@ -132,10 +132,8 @@ Contributions are welcome, both issues and code. Get in touch at twitter [@micha
 ## TODOs
 - test with huge messages (first make as big as possible until fails, then execute them with more than 10 minutes target so they get bulked)
 - attach to own project
-- helper script to create an output topic with proper access policy (should take name and region as parameters)
 - use a proper logger
 - secure the PoC with test
 - include a failure queue and adjust the docs
-- add a (video) guide on how to create a proper output queue
 - add a safe guard that pulls messages from dead letter queues back into the circuit
 - handling for messages that can't be utf-8 encoded
