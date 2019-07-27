@@ -18,3 +18,4 @@ class EventWrapper(Model):
     target = UnicodeAttribute()
     status = UnicodeAttribute(default='NEW')
     user = UnicodeAttribute(null=True)
+    failure_topic = UnicodeAttribute(null=True)

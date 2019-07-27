@@ -4,18 +4,21 @@ import os
 from datetime import datetime
 from uuid import uuid4
 
-import boto3
-
 from db_helper import save_with_retry
 from model import EventWrapper
 from util import make_chunks
+from lambda_client import invoke_lambda
+from sns_client import publish_sns
 
-# todo: move into lambda client
-lambda_client = boto3.client('lambda')
 
-
-def publish_to_failure_topic(event):
+def publish_to_failure_topic(event, reason):
     print('Event failed: %s' % event)
+    if 'failure_topic' in event:
+        payload = {
+            'error': reason,
+            'event': event
+        }
+        publish_sns(event['failure_topic'], json.dumps(payload))
 
 
 def handle(events):
@@ -23,20 +26,31 @@ def handle(events):
     event_wrappers = []
     for event in events:
         print(event)
-        if 'date' not in event or 'payload' not in event or 'target' not in event:
-            publish_to_failure_topic(event)
+
+        if 'date' not in event:
+            publish_to_failure_topic(event, 'date is required')
             continue
+        if 'payload' not in event:
+            publish_to_failure_topic(event, 'payload is required')
+            continue
+        if 'target' not in event:
+            publish_to_failure_topic(event, 'target is required')
+            continue
+
         event_wrapper = EventWrapper()
         event_wrapper.id = str(uuid4())
         event_wrapper.date = event['date']
+
         if not isinstance(event['payload'], str):
-            publish_to_failure_topic(event)
+            publish_to_failure_topic(event, 'payload must be a string')
             continue
+
         event_wrapper.payload = event['payload']
         event_wrapper.target = event['target']
+
         if 'user' not in event:
             if 'true' == os.environ.get('ENFORCE_USER'):
-                publish_to_failure_topic(event)
+                publish_to_failure_topic(event, 'user is required')
                 continue
         else:
             event_wrapper.user = event['user']
@@ -53,11 +67,7 @@ def handle(events):
     print('Fast track scheduling for %d entries' % len(to_be_scheduled))
     for chunk in make_chunks(to_be_scheduled, 200):
         ids = json.dumps(chunk).encode('utf-8')
-        lambda_client.invoke(
-            FunctionName=os.environ.get('SCHEDULE_FUNCTION'),
-            InvocationType='Event',
-            Payload=ids
-        )
+        invoke_lambda(os.environ.get('SCHEDULE_FUNCTION'), ids)
 
     print('Processed %d entries' % len(events))
 

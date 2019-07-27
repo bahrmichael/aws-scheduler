@@ -1,9 +1,9 @@
-import boto3
+import json
 
 from db_helper import delete_with_retry, save_with_retry
 from model import EventWrapper
 
-client = boto3.client('sns')
+from sns_client import publish_sns
 
 
 def handle(items):
@@ -23,10 +23,7 @@ def handle(items):
             # to make sure we have at least one delivery
 
         try:
-            client.publish(
-                TopicArn=item['target'],
-                Message=item['payload']
-            )
+            publish_sns(item['target'], item['payload'])
             processed_ids.append(event_id)
         except Exception as e:
             print(e)
@@ -49,8 +46,22 @@ def handle(items):
             event = EventWrapper.get(hash_key=event_id)
             event.status = 'FAILED'
             failed_items.append(event)
+
+            # can happen if sqs does not respond
+            if event.failure_topic is not None:
+                payload = {
+                    'error': 'ERROR',
+                    'event': event.payload
+                }
+                # todo: let the publish_sns/sqs methods do the json dumping themselves if they encounter a non-string
+                # i believe json.dumps("test") results in "test", if that's correct then we can always apply json.dumps()
+                publish_sns(event.failure_topic, json.dumps(payload))
         except Exception as e:
             print(f'Skipped {event_id} because it doesn\'t exist anymore')
             print(e)
 
     save_with_retry(failed_items)
+
+
+if __name__ == '__main__':
+    print(json.dumps("123"))

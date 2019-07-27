@@ -4,12 +4,11 @@ from datetime import timedelta, datetime
 
 import boto3
 
+from lambda_client import invoke_lambda
 from util import make_chunks
 
 stage = os.environ.get('STAGE')
 
-lambda_client = boto3.client('lambda')
-sqs = boto3.client('sqs')
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(f'aws-scheduler-events-{stage}')
 
@@ -36,11 +35,7 @@ def run():
             ids.append(item['id'])
 
         for chunk in make_chunks(ids, 200):
-            lambda_client.invoke(
-                FunctionName=os.environ.get('SCHEDULE_FUNCTION'),
-                InvocationType='Event',
-                Payload=json.dumps(chunk).encode('utf-8')
-            )
+            invoke_lambda(os.environ.get('SCHEDULE_FUNCTION'), json.dumps(chunk).encode('utf-8'))
 
         if 'LastEvaluatedKey' in response:
             print('Continuing at next page')

@@ -24,23 +24,25 @@ First of all you need an output topic that we can publish events to once the sch
   "Sid": "scheduler-output-<stage>-publish-access",
   "Effect": "Allow",
   "Principal": {
-    "AWS": "arn:aws:iam::256608350746:root"
+    "AWS": "arn:aws:sts::256608350746:assumed-role/aws-scheduler-prod-us-east-1-lambdaRole/aws-scheduler-prod-emitter"
   },
   "Action": "SNS:Publish",
   "Resource": "arn:aws:sns:us-east-1:256608350746:scheduler-output-<stage>"
 }
 ``` 
 
-If you don't want to grant our account the right to publish, you can pass your own accountId as a third argument.
+If you don't want to grant our emitter the right to publish, you can pass your own emitter role as a third argument.
 
 ```
 Creating topic scheduler-output-<stage>
 Created topic scheduler-output-<stage> with arn arn:aws:sns:us-east-1:<your-account-id>:scheduler-output-<stage>
-Granting publish rights to scheduler-output-<stage> for accountId 256608350746
+Granting publish rights to scheduler-output-<stage> for role arn:aws:sts::256608350746:assumed-role/aws-scheduler-prod-us-east-1-lambdaRole/aws-scheduler-prod-emitter
 Done
 ```
 
 Write down the ARN of your output topic as you will need it for the input events.
+
+Rerun this process with the command `python setup/init_failure_topic.py <stage>` to create a topic where the service can publish errors.
 
 ### Input
 To schedule a trigger you have to publish an event which follows the structure below to the ARN of the input topic. You can find the ARN of our service in the SAAS Offer section.
@@ -48,11 +50,14 @@ To schedule a trigger you have to publish an event which follows the structure b
 ```json
 {
   "date": "utc timestamp following ISO 8601",
-  "target": "arn of your output topic",
+  "target": "arn of your sns output topic",
   "user": "some way we can get in touch with you",
-  "payload": "any string payload"
+  "payload": "any string payload",
+  "failure_topic": "arn of an sns topic where the service can publish errors"
 }
 ```
+
+All fields except `failure_topic` are mandatory. Please make sure that the `payload` can be utf-8 encoded. If you submit an event that does not follow the spec, it will published to the `failure_topic`.
 
 SNS messages must be strings. First string encode the json structure and then publish it to the input topic.
 
@@ -73,8 +78,6 @@ event = {
 input_topic = 'arn:aws:sns:us-east-1:256608350746:scheduler-input-prod'
 client.publish(TopicArn=input_topic, Message=json.dumps(event))
 ```
-
-All fields are mandatory. Please make sure that the `payload` can be utf-8 encoded. If you submit an event that does not follow the spec, it will be dropped. Future versions will improve on this.
 
 So far there is no batch publishing available for SNS. Make sure the event stays within the 256KB limit of SNS. We recommend that you only submit IDs and don't transfer any real data to the service.
 
@@ -135,12 +138,36 @@ Events may arrive more than once at the output topic.
 ## Contributions
 Contributions are welcome, both issues and code. Get in touch at twitter [@michabahr](https://twitter.com/michabahr) or create an issue.
 
+## Example payloads
+
+### Output topic
+```json
+{
+  "EventSource": "aws:sns", 
+  "EventVersion": "1.0", 
+  "EventSubscriptionArn": "...", 
+  "Sns": {
+    "Type": "Notification", 
+    "MessageId": "eccc1539-0867-5c6d-8b53-408f5b91b578", 
+    "TopicArn": "arn:aws:sns:us-east-1:256608350746:scheduler-output-prod", 
+    "Subject": null, 
+    "Message": "my-message", 
+    "Timestamp": "2019-07-27T13:29:26.405Z", 
+    "SignatureVersion": "1", 
+    "Signature": "...", 
+    "SigningCertUrl": "...", 
+    "UnsubscribeUrl": "...", 
+    "MessageAttributes": {}
+  }
+}
+```
+
+## immediate TODOs
+- set up a test project that holds the performance testing suite which also lets others get a quick start
 ## TODOs
-- attach to own project
-- example functions for quick start: put into dedicated folder
+- adjust pictures to show failure queue
 - limitation of message size (10kb), also explain why
 - use a proper logger
 - secure the PoC with test
-- include a failure queue and adjust the docs
 - add a safe guard that pulls messages from dead letter queues back into the circuit
 - handling for messages that can't be utf-8 encoded

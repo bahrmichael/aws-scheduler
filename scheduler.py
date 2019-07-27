@@ -3,13 +3,12 @@ import math
 import os
 from datetime import datetime
 
-import boto3
 from pynamodb.exceptions import DoesNotExist
 
 from db_helper import save_with_retry
 from model import EventWrapper
-# todo: extract into queue client
-sqs = boto3.client('sqs')
+from sns_client import publish_sns
+from sqs_client import publish_sqs
 
 
 def handle(events):
@@ -69,7 +68,15 @@ def handle(events):
         item = events_by_id[id]
         item.status = 'FAILED'
         to_save.append(item)
-        # todo: emit to failure queue
+
+        # todo: instead of publishing the error we should reschedule it automatically
+        # can happen if sqs does not respond
+        if item.failure_topic is not None:
+            payload = {
+                'error': 'ERROR',
+                'event': item.payload
+            }
+            publish_sns(item.failure_topic, json.dumps(payload))
 
     save_with_retry(to_save)
 
@@ -80,10 +87,7 @@ def send_to_sqs(to_be_scheduled):
     successful_ids = []
     failed_ids = []
     try:
-        response = sqs.send_message_batch(
-            QueueUrl=os.environ.get('QUEUE_URL'),
-            Entries=to_be_scheduled
-        )
+        response = publish_sqs(os.environ.get('QUEUE_URL'), to_be_scheduled)
         if 'Successful' in response:
             for element in response['Successful']:
                 successful_ids.append(element['Id'])
