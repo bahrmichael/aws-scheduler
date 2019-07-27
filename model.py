@@ -13,4 +13,4 @@ class EventWrapper(Model):
     payload = UnicodeAttribute()
     target = UnicodeAttribute()
     status = UnicodeAttribute(default='NEW')
-    user = UnicodeAttribute()
+    user = UnicodeAttribute(null=True)

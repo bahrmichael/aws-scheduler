@@ -5,7 +5,6 @@ from pynamodb.exceptions import PutError, DeleteError
 
 def save_with_retry(items):
     while True:
-        print('%d entries to retry' % len(items))
         if len(items) == 0:
             break
         item = items.pop(0)
@@ -20,7 +19,6 @@ def save_with_retry(items):
 
 def delete_with_retry(items):
     while True:
-        print('%d entries to retry' % len(items))
         if len(items) == 0:
             break
         item = items.pop(0)
