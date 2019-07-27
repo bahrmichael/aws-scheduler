@@ -54,7 +54,7 @@ To schedule a trigger you have to publish an event which follows the structure b
 }
 ```
 
-First string encode the json structure and then publish it to the input topic.
+SNS messages must be strings. First string encode the json structure and then publish it to the input topic.
 
 ```python
 # Python example
