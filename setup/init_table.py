@@ -1,10 +1,16 @@
+import sys
+
 import boto3
 
 client = boto3.client('dynamodb')
 
 
 def events():
-    name = 'aws-scheduler-events'
+    if len(sys.argv) < 2:
+        print('Missing argument for stage.')
+    stage = sys.argv[1]
+
+    name = f'aws-scheduler-events-{stage}'
     response = client.list_tables()
     if name in response['TableNames']:
         print('Table %s already exists. Please delete it first.' % name)
