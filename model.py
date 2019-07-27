@@ -10,7 +10,7 @@ class EventWrapper(Model):
 
     id = UnicodeAttribute(hash_key=True)
     date = UnicodeAttribute()
-    event = UnicodeAttribute()
-    arn = UnicodeAttribute()
+    payload = UnicodeAttribute()
+    target = UnicodeAttribute()
     status = UnicodeAttribute(default='NEW')
     user = UnicodeAttribute()

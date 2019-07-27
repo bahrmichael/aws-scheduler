@@ -40,20 +40,12 @@ def handle(events):
         to_be_scheduled.append({
             'Id': event_id,
             'MessageBody': json.dumps({
-                'event': item.event,
-                'arn': item.arn,
+                'payload': item.payload,
+                'target': item.target,
                 'id': item.id
             }),
             'DelaySeconds': rounded_delay
         })
-
-        # # DEV CODE REMOVE ME LATER
-        # payload = json.loads(item.event)
-        # if 'execution_time' in payload:
-        #     execution_time = datetime.fromisoformat(payload['execution_time'])
-        #     delta = int((datetime.utcnow() - execution_time).total_seconds() * 1000)
-        #     if delta > 0:
-        #         print(f'Delay: {delta}')
 
         if len(to_be_scheduled) == 10:
             successes, failures = send_to_sqs(to_be_scheduled)
@@ -77,6 +69,7 @@ def handle(events):
         item = events_by_id[id]
         item.status = 'FAILED'
         to_save.append(item)
+        # todo: emit to failure queue
 
     save_with_retry(to_save)
 
@@ -102,5 +95,4 @@ def send_to_sqs(to_be_scheduled):
     except Exception as e:
         print(e)
         failed_ids = to_be_scheduled
-    # todo: add logic to retry events that are in status FAILED, after x attempts put them into status ERROR
     return successful_ids, failed_ids

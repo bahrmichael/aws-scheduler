@@ -24,8 +24,8 @@ def handle(items):
 
         try:
             client.publish(
-                TopicArn=item['arn'],
-                Message=item['event']
+                TopicArn=item['target'],
+                Message=item['payload']
             )
             processed_ids.append(event_id)
         except Exception as e:

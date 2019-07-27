@@ -4,6 +4,8 @@ from datetime import timedelta, datetime
 
 import boto3
 
+from util import make_chunks
+
 lambda_client = boto3.client('lambda')
 sqs = boto3.client('sqs')
 dynamodb = boto3.resource('dynamodb')
@@ -32,11 +34,10 @@ def run():
             ids.append(item['id'])
 
         for chunk in make_chunks(ids, 200):
-            payload = json.dumps(chunk).encode('ascii')
             lambda_client.invoke(
                 FunctionName=os.environ.get('SCHEDULE_FUNCTION'),
                 InvocationType='Event',
-                Payload=payload
+                Payload=json.dumps(chunk).encode('utf-8')
             )
 
         if 'LastEvaluatedKey' in response:
@@ -47,13 +48,6 @@ def run():
             break
 
     print('Batched %d entries' % count)
-
-
-# todo: move to util package
-def make_chunks(l, chunk_length):
-    # Yield successive n-sized chunks from l.
-    for i in range(0, len(l), chunk_length):
-        yield l[i:i + chunk_length]
 
 
 def load_data(until, last_evaluated_key, limit=5000):

@@ -8,6 +8,7 @@ import boto3
 
 from db_helper import save_with_retry
 from model import EventWrapper
+from util import make_chunks
 
 lambda_client = boto3.client('lambda')
 
@@ -16,17 +17,18 @@ def handle(events):
     to_be_scheduled = []
     event_wrappers = []
     for event in events:
-        if 'date' not in event or 'event' not in event or 'arn' not in event:
+        print(event)
+        if 'date' not in event or 'payload' not in event or 'target' not in event:
             # todo: publish to failure queue
             continue
         event_wrapper = EventWrapper()
         event_wrapper.id = str(uuid4())
         event_wrapper.date = event['date']
-        if not isinstance(event['event'], str):
+        if not isinstance(event['payload'], str):
             # todo: publish to failure queue
             continue
-        event_wrapper.event = event['event']
-        event_wrapper.arn = event['arn']
+        event_wrapper.payload = event['payload']
+        event_wrapper.target = event['target']
         print(os.environ.get('ENFORCE_USER'))
         if 'user' not in event:
             if 'true' == os.environ.get('ENFORCE_USER'):
@@ -46,11 +48,11 @@ def handle(events):
 
     print('Fast track scheduling for %d entries' % len(to_be_scheduled))
     for chunk in make_chunks(to_be_scheduled, 200):
-        payload = json.dumps(chunk).encode('ascii')
+        ids = json.dumps(chunk).encode('utf-8')
         lambda_client.invoke(
             FunctionName=os.environ.get('SCHEDULE_FUNCTION'),
             InvocationType='Event',
-            Payload=payload
+            Payload=ids
         )
 
     print('Processed %d entries' % len(events))
@@ -66,9 +68,3 @@ def get_seconds_remaining(date):
     target = datetime.fromisoformat(date)
     delta = target - now
     return math.ceil(delta.total_seconds())
-
-
-def make_chunks(l, chunk_length):
-    # Yield successive n-sized chunks from l.
-    for i in range(0, len(l), chunk_length):
-        yield l[i:i + chunk_length]
