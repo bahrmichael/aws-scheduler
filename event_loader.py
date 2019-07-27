@@ -6,10 +6,12 @@ import boto3
 
 from util import make_chunks
 
+stage = os.environ.get('STAGE')
+
 lambda_client = boto3.client('lambda')
 sqs = boto3.client('sqs')
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('aws-scheduler-events')
+table = dynamodb.Table(f'aws-scheduler-events-{stage}')
 
 
 def run():

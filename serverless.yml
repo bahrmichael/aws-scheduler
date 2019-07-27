@@ -25,6 +25,8 @@ provider:
       Action:
         - lambda:InvokeFunction
       Resource: { "Fn::Join": [":", ["arn:aws:lambda:${self:provider.region}", { "Ref": "AWS::AccountId" }, "function", "${self:custom.scheduleFunction}" ] ]  }
+  environment:
+    STAGE: "${self:provider.stage}"
 
 custom:
   inbound:

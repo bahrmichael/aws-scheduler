@@ -123,6 +123,12 @@ The charts show the amount of events received on the y axis and the distribution
 ![Regular Scaled 100000 events within 10 minutes](https://github.com/bahrmichael/aws-scheduler/raw/master/pictures/regular-scaled-100k-10m.png)
 ![Log Scaled 100000 events within 10 minutes](https://github.com/bahrmichael/aws-scheduler/raw/master/pictures/log-scaled-100k-10m.png)
 
+## Scalability
+
+Based on our tests from the Performance section, we are confident that this stack can handle 100.000.000 events per month and might scale up to 500.000.000 events per month.
+
+These numbers are not confirmed though, as that volume incurs significant AWS costs.
+
 ## Limitations
 Events may arrive more than once at the output topic.
 
@@ -130,8 +136,9 @@ Events may arrive more than once at the output topic.
 Contributions are welcome, both issues and code. Get in touch at twitter [@michabahr](https://twitter.com/michabahr) or create an issue.
 
 ## TODOs
-- test with huge messages (first make as big as possible until fails, then execute them with more than 10 minutes target so they get bulked)
 - attach to own project
+- example functions for quick start: put into dedicated folder
+- limitation of message size (10kb), also explain why
 - use a proper logger
 - secure the PoC with test
 - include a failure queue and adjust the docs
