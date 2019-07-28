@@ -16,6 +16,8 @@ If you become a heavy user with more than 100.000 events per month we might want
 
 ## Usage
 
+A quick start project is available at [aws-scheduler-testing](https://github.com/bahrmichael/aws-scheduler-testing).
+
 ### Setup
 First of all you need an output topic that we can publish events to once the scheduled datetime arrives. To do this run `python setup/init_output_topic.py <stage>`. This will create a topic called `scheduler-output-<stage>` and grant our account the right to publish messages. You can see the added policy below.
 
@@ -163,8 +165,6 @@ Contributions are welcome, both issues and code. Get in touch at twitter [@micha
 }
 ```
 
-## immediate TODOs
-- set up a test project that holds the performance testing suite which also lets others get a quick start
 ## TODOs
 - adjust pictures to show failure queue
 - limitation of message size (10kb), also explain why
