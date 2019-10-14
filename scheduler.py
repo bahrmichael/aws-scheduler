@@ -3,10 +3,10 @@ import math
 import os
 from datetime import datetime
 
-from pynamodb.exceptions import DoesNotExist
+from boto3.dynamodb.conditions import Key
 
 from db_helper import save_with_retry
-from model import EventWrapper
+from model import table
 from sns_client import publish_sns
 from sqs_client import publish_sqs
 
@@ -21,15 +21,17 @@ def handle(events):
 
     for event_id in events:
 
-        try:
-            item = EventWrapper.get(event_id)
-        except DoesNotExist:
+        event_response = table.query(
+            KeyConditionExpression=Key('id').eq(event_id)
+        )
+        if event_response['Count'] == 0:
             print('Event %s doesn\'t exist anymore' % event_id)
             continue
+        item = event_response['Items'][0]
 
         events_by_id[event_id] = item
 
-        delta = datetime.fromisoformat(item.date) - datetime.utcnow()
+        delta = datetime.fromisoformat(item['date']) - datetime.utcnow()
         delay = delta.total_seconds()
         rounded_delay = math.ceil(delay)
         if rounded_delay < 0:
@@ -41,16 +43,20 @@ def handle(events):
 
         print(f'ID {event_id} is supposed to emit in {rounded_delay}s which is {delay - rounded_delay}s before target.')
 
-        to_be_scheduled.append({
+        event = {
+            'payload': item['payload'],
+            'target': item['target'],
+            'id': item['id'],
+            'date': item['date']
+        }
+        if 'failure_topic' in item:
+            event['failure_topic'] = item['failure_topic']
+        sqs_message = {
             'Id': event_id,
-            'MessageBody': json.dumps({
-                'payload': item.payload,
-                'target': item.target,
-                'id': item.id,
-                'date': item.date
-            }),
+            'MessageBody': json.dumps(event),
             'DelaySeconds': rounded_delay
-        })
+        }
+        to_be_scheduled.append(sqs_message)
 
         if len(to_be_scheduled) == 10:
             successes, failures = send_to_sqs(to_be_scheduled)
@@ -67,22 +73,22 @@ def handle(events):
     to_save = []
     for id in successful_ids:
         item = events_by_id[id]
-        item.status = 'SCHEDULED'
+        item['status'] = 'SCHEDULED'
         to_save.append(item)
 
     for id in failed_ids:
         item = events_by_id[id]
-        item.status = 'FAILED'
+        item['status'] = 'FAILED'
         to_save.append(item)
 
         # todo: instead of publishing the error we should reschedule it automatically
         # can happen if sqs does not respond
-        if item.failure_topic is not None:
+        if 'failure_topic' in item:
             payload = {
                 'error': 'ERROR',
-                'event': item.payload
+                'event': item['payload']
             }
-            publish_sns(item.failure_topic, json.dumps(payload))
+            publish_sns(item['failure_topic'], json.dumps(payload))
 
     save_with_retry(to_save)
 

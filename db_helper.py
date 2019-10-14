@@ -1,6 +1,6 @@
 import time
 
-from pynamodb.exceptions import PutError, DeleteError
+from model import table
 
 
 def save_with_retry(items):
@@ -9,23 +9,9 @@ def save_with_retry(items):
             break
         item = items.pop(0)
         try:
-            item.save()
-        except PutError as e:
-            print(e)
+            table.put_item(Item=item)
+        except Exception as e:
+            print(str(e))
             print('Delaying put of %s' % item.id)
-            items.append(item)
-            time.sleep(.200)
-
-
-def delete_with_retry(items):
-    while True:
-        if len(items) == 0:
-            break
-        item = items.pop(0)
-        try:
-            item.delete()
-        except DeleteError as e:
-            print(e)
-            print('Delaying deletion of %s' % item.id)
             items.append(item)
             time.sleep(.200)

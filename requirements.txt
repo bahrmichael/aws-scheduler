@@ -1,9 +1,9 @@
-boto3==1.9.193
-botocore==1.12.193
-docutils==0.14
+boto3==1.9.248
+botocore==1.12.248
+docutils==0.15.2
 jmespath==0.9.4
-pynamodb==3.4.1
+lumigo-tracer==1.1.72
 python-dateutil==2.8.0
 s3transfer==0.2.1
 six==1.12.0
-urllib3==1.25.3
+urllib3==1.25.6

@@ -2,15 +2,9 @@ import json
 import os
 from datetime import timedelta, datetime
 
-import boto3
-
 from lambda_client import invoke_lambda
+from model import table
 from util import make_chunks
-
-stage = os.environ.get('STAGE')
-
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table(f'aws-scheduler-events-{stage}')
 
 
 def run():
