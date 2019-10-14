@@ -121,12 +121,13 @@ You can disable the `user` check on the input event for your own deployment with
 ## Performance
 We ran tests by sending events that included the scheduled timestamp in the payload. Once received we compared those timestamps with the current time.
 
-Our results showed that most of the events arrive within one second of the specified datetime and the rest within the next few seconds.
+In our results all events arrive within one second with a clear trend to stay well below 100ms.
 
-The charts show the amount of events received on the y axis and the distribution by delay on the x axis.
+![Distribution Over 5 Days](https://miro.medium.com/max/640/1*4LGtbE8CRYRwuqTNkjHiHQ.png)
 
-![Regular Scaled 100000 events within 10 minutes](https://github.com/bahrmichael/aws-scheduler/raw/master/pictures/regular-scaled-100k-10m.png)
-![Log Scaled 100000 events within 10 minutes](https://github.com/bahrmichael/aws-scheduler/raw/master/pictures/log-scaled-100k-10m.png)
+The following chart show the amount of events received on the y axis and the distribution by delay on the x axis.
+
+![Log Scaled Delay Times](https://miro.medium.com/max/640/1*LNkXRQ4Oaskb_DoDGpKJSg.png)
 
 ## Scalability
 
@@ -168,7 +169,6 @@ Contributions are welcome, both issues and code. Get in touch at twitter [@micha
 ## TODOs
 - adjust pictures to show failure queue
 - limitation of message size (10kb), also explain why
-- use a proper logger
 - secure the PoC with test
 - add a safe guard that pulls messages from dead letter queues back into the circuit
 - handling for messages that can't be utf-8 encoded
