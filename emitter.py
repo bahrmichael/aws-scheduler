@@ -1,47 +1,41 @@
 import json
+import time
+from datetime import datetime
 
-from db_helper import delete_with_retry, save_with_retry
+from db_helper import save_with_retry
 from model import EventWrapper
-
 from sns_client import publish_sns
 
 
 def handle(items):
-    # todo: remove the message from the queue?
-    processed_ids = []
     failed_ids = []
     print(f'Processing {len(items)} records')
+
+    # sort the items so that we process the earliest first
+    items.sort(key=lambda x: x['date'])
+
     for item in items:
         event_id = item['id']
-        try:
-            if EventWrapper.count(hash_key=event_id) == 0:
-                # if the event was already deleted from the database, then don't send it again
-                continue
-        except Exception as e:
-            print(e)
-            # if we can't determine if the event was already processed, then we'll send it
-            # to make sure we have at least one delivery
+
+        # the event we received may have been scheduled early
+        scheduled_execution = datetime.fromisoformat(item['date'])
+
+        delay = (scheduled_execution - datetime.utcnow()).total_seconds()
+        # remove another 10ms as there will be a short delay between the emitter, the target sns and its consumer
+        delay -= 0.01
+        # if there is a positive delay then wait until it's time
+        if delay > 0:
+            time.sleep(delay)
 
         try:
             publish_sns(item['target'], item['payload'])
-            processed_ids.append(event_id)
+            print('event.emitted %s' % (json.dumps({'id': event_id, 'timestamp': str(datetime.utcnow()), 'scheduled': str(scheduled_execution)})))
         except Exception as e:
-            print(e)
+            print(str(e))
             failed_ids.append(event_id)
-
-    to_delete = []
-    for event_id in processed_ids:
-        try:
-            to_delete.append(EventWrapper.get(hash_key=event_id))
-        except Exception as e:
-            print(f'Skipped {event_id} because it doesn\'t exist anymore')
-            print(e)
-
-    delete_with_retry(to_delete)
 
     failed_items = []
     for event_id in failed_ids:
-        # todo: maybe also emit this to an error topic?
         try:
             event = EventWrapper.get(hash_key=event_id)
             event.status = 'FAILED'
@@ -53,15 +47,9 @@ def handle(items):
                     'error': 'ERROR',
                     'event': event.payload
                 }
-                # todo: let the publish_sns/sqs methods do the json dumping themselves if they encounter a non-string
-                # i believe json.dumps("test") results in "test", if that's correct then we can always apply json.dumps()
                 publish_sns(event.failure_topic, json.dumps(payload))
         except Exception as e:
-            print(f'Skipped {event_id} because it doesn\'t exist anymore')
-            print(e)
+            print(f'Failure update: Skipped {event_id} because it doesn\'t exist anymore')
+            print(str(e))
 
     save_with_retry(failed_items)
-
-
-if __name__ == '__main__':
-    print(json.dumps("123"))

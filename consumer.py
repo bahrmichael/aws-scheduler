@@ -12,6 +12,7 @@ from sns_client import publish_sns
 
 
 def publish_to_failure_topic(event, reason):
+    # todo: prepare against failure of publish sns
     print('Event failed: %s' % event)
     if 'failure_topic' in event:
         payload = {
@@ -22,6 +23,7 @@ def publish_to_failure_topic(event, reason):
 
 
 def handle(events):
+    received = datetime.utcnow()
     to_be_scheduled = []
     event_wrappers = []
     for event in events:
@@ -29,12 +31,15 @@ def handle(events):
 
         if 'date' not in event:
             publish_to_failure_topic(event, 'date is required')
+            print('error.date_required %s' % (json.dumps({'event': event})))
             continue
         if 'payload' not in event:
             publish_to_failure_topic(event, 'payload is required')
+            print('error.payload_required %s' % (json.dumps({'event': event})))
             continue
         if 'target' not in event:
             publish_to_failure_topic(event, 'target is required')
+            print('error.target_required %s' % (json.dumps({'event': event})))
             continue
 
         event_wrapper = EventWrapper()
@@ -43,14 +48,16 @@ def handle(events):
 
         if not isinstance(event['payload'], str):
             publish_to_failure_topic(event, 'payload must be a string')
+            print('error.payload_is_not_string %s' % (json.dumps({'event': event})))
             continue
 
         event_wrapper.payload = event['payload']
         event_wrapper.target = event['target']
 
         if 'user' not in event:
-            if 'true' == os.environ.get('ENFORCE_USER'):
+            if os.environ.get('ENFORCE_USER'):
                 publish_to_failure_topic(event, 'user is required')
+                print('error.event_has_no_user %s' % (json.dumps({'event': event})))
                 continue
         else:
             event_wrapper.user = event['user']
@@ -59,6 +66,7 @@ def handle(events):
         if has_less_then_ten_minutes(event_wrapper.date):
             to_be_scheduled.append(event_wrapper.id)
 
+        print('event.consumed %s' % (json.dumps({'id': event_wrapper.id, 'timestamp': str(received), 'user': event_wrapper.user})))
         event_wrappers.append(event_wrapper)
 
     # we must save before delegating, because the downstream function will access the DB entity

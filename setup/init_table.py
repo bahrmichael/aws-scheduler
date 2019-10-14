@@ -1,4 +1,5 @@
 import sys
+import time
 
 import boto3
 
@@ -11,10 +12,13 @@ def events():
     stage = sys.argv[1]
 
     name = f'aws-scheduler-events-{stage}'
-    response = client.list_tables()
-    if name in response['TableNames']:
-        print('Table %s already exists. Please delete it first.' % name)
-        return
+    while True:
+        response = client.list_tables()
+        if name in response['TableNames']:
+            print('Table %s already exists. Please delete it first. Waiting 5 seconds until trying again...' % name)
+            time.sleep(5)
+        else:
+            break
     client.create_table(
         TableName=name,
         AttributeDefinitions=[

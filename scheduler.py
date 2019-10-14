@@ -12,7 +12,6 @@ from sqs_client import publish_sqs
 
 
 def handle(events):
-    now = datetime.utcnow()
     successful_ids = []
     failed_ids = []
 
@@ -30,18 +29,25 @@ def handle(events):
 
         events_by_id[event_id] = item
 
-        delta = datetime.fromisoformat(item.date) - now
+        delta = datetime.fromisoformat(item.date) - datetime.utcnow()
         delay = delta.total_seconds()
         rounded_delay = math.ceil(delay)
         if rounded_delay < 0:
             rounded_delay = 0
+
+        # schedule the event a second earlier to help with delays in sqs/lambda cold start
+        # the emitter will wait accordingly
+        rounded_delay -= 1
+
+        print(f'ID {event_id} is supposed to emit in {rounded_delay}s which is {delay - rounded_delay}s before target.')
 
         to_be_scheduled.append({
             'Id': event_id,
             'MessageBody': json.dumps({
                 'payload': item.payload,
                 'target': item.target,
-                'id': item.id
+                'id': item.id,
+                'date': item.date
             }),
             'DelaySeconds': rounded_delay
         })
@@ -92,11 +98,11 @@ def send_to_sqs(to_be_scheduled):
             for element in response['Successful']:
                 successful_ids.append(element['Id'])
         if 'Failed' in response:
-            print(response['Failed'])
+            print(f'ERROR: Failed to process entry: {response["Failed"]}')
             for element in response['Failed']:
                 failed_ids.append(element['Id'])
 
     except Exception as e:
-        print(e)
+        print(str(e))
         failed_ids = to_be_scheduled
     return successful_ids, failed_ids

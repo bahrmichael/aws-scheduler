@@ -5,30 +5,35 @@ provider:
   runtime: python3.7
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
+  environment:
+    STAGE: "${self:provider.stage}"
+  tags:
+    name: 'aws-scheduler'
   iamRoleStatements:
     - Effect: Allow
       Action:
         - dynamodb:DescribeTable
+        - dynamodb:DeleteItem
+        - dynamodb:PutItem
+        - dynamodb:DescribeTable
         - dynamodb:Query
         - dynamodb:GetItem
         - dynamodb:GetShardIterator
-        - dynamodb:PutItem
-        - dynamodb:DeleteItem
       Resource:
-        - "${self:custom.table.arn}"
         - "${self:custom.table.index.arn}"
-    - Effect: Allow
-      Action:
-        - SQS:SendMessage
-      Resource: "${self:custom.queue.arn}"
+        - "${self:custom.table.arn}"
     - Effect: Allow
       Action:
         - lambda:InvokeFunction
       Resource: { "Fn::Join": [":", ["arn:aws:lambda:${self:provider.region}", { "Ref": "AWS::AccountId" }, "function", "${self:custom.scheduleFunction}" ] ]  }
-  environment:
-    STAGE: "${self:provider.stage}"
+    - Effect: Allow
+      Action:
+        - SQS:SendMessage
+      Resource: "${self:custom.queue.arn}"
 
 custom:
+  lumigo:
+    token: t_e74a5589b5524099bdc04
   inbound:
     name: "scheduler-input-${self:provider.stage}"
     arn: { "Fn::Join": [":", ["arn:aws:sns:${self:provider.region}", { "Ref": "AWS::AccountId" }, "${self:custom.inbound.name}" ] ]  }
@@ -60,7 +65,10 @@ functions:
           topicName: "${self:custom.inbound.name}"
     environment:
       SCHEDULE_FUNCTION: "${self:custom.scheduleFunction}"
-      ENFORCE_USER: false
+      ENFORCE_USER: true
+    tags:
+      name: 'aws-scheduler-consumer'
+
   eventLoader:
     handler: handler.event_loader
     events:
@@ -68,12 +76,18 @@ functions:
     environment:
       SCHEDULE_FUNCTION: "${self:custom.scheduleFunction}"
       INDEX_NAME: "${self:custom.table.index.name}"
+    tags:
+      name: 'aws-scheduler-event-loader'
+
   scheduler:
     handler: handler.scheduler
     environment:
       QUEUE_URL: "${self:custom.queue.url}"
     # when we have to wait for DynamoDB autoscaling we may exceed the default of 6s
     timeout: 30
+    tags:
+      name: 'aws-scheduler-scheduler'
+
   emitter:
     handler: handler.emitter
     events:
@@ -87,6 +101,16 @@ functions:
                 - Ref: AWS::Region
                 - Ref: AWS::AccountId
                 - "${self:custom.queue.name}"
+    timeout: 20
+    tags:
+      name: 'aws-scheduler-emitter'
+  cleanupFailed:
+    handler: cleanup_failed.handle
+    timeout: 300
+    tags:
+      name: 'aws-scheduler-cleanup'
+    environment:
+      INDEX_NAME: "${self:custom.table.index.name}"
 
 plugins:
   - serverless-python-requirements

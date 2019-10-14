@@ -47,13 +47,13 @@ def run():
     print('Batched %d entries' % count)
 
 
-def load_data(until, last_evaluated_key, limit=5000):
+def load_data(until, last_evaluated_key, limit=5000, status='NEW'):
     if last_evaluated_key is None:
         response = table.query(
             IndexName=os.environ.get('INDEX_NAME'),
             KeyConditionExpression='#status = :st and #date < :until',
             ExpressionAttributeNames={"#status": "status", "#date": "date"},
-            ExpressionAttributeValues={":until": until, ':st': 'NEW'},
+            ExpressionAttributeValues={":until": until, ':st': status},
             Limit=limit,
             ProjectionExpression='id'
         )
@@ -62,7 +62,7 @@ def load_data(until, last_evaluated_key, limit=5000):
             IndexName=os.environ.get('INDEX_NAME'),
             KeyConditionExpression='#status = :st and #date < :until',
             ExpressionAttributeNames={"#status": "status", "#date": "date"},
-            ExpressionAttributeValues={":until": until, ':st': 'NEW'},
+            ExpressionAttributeValues={":until": until, ':st': status},
             Limit=limit,
             ProjectionExpression='id',
             ExclusiveStartKey=last_evaluated_key
