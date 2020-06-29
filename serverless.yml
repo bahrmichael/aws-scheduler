@@ -1,4 +1,4 @@
-service: aws-scheduler
+service: aws-scheduler-v2
 
 provider:
   name: aws
@@ -8,7 +8,8 @@ provider:
   environment:
     STAGE: "${self:provider.stage}"
   tags:
-    name: 'aws-scheduler'
+    department: research
+    project: aws-scheduler
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -20,7 +21,6 @@ provider:
         - dynamodb:GetItem
         - dynamodb:GetShardIterator
       Resource:
-        - "${self:custom.table.index.arn}"
         - "${self:custom.table.arn}"
     - Effect: Allow
       Action:
@@ -29,24 +29,26 @@ provider:
     - Effect: Allow
       Action:
         - SQS:SendMessage
-      Resource: "${self:custom.queue.arn}"
+      Resource:
+      - "${self:custom.queue.arn}"
+    - Effect: Allow
+      Action:
+        - cloudwatch:PutMetricData
+      Resource: "*"
 
 custom:
-  lumigo:
-    token: t_e74a5589b5524099bdc04
+  # lumigo:
+  #   token: t_e74a5589b5524099bdc04
   inbound:
-    name: "scheduler-input-${self:provider.stage}"
+    name: "scheduler-input-v2-${self:provider.stage}"
     arn: { "Fn::Join": [":", ["arn:aws:sns:${self:provider.region}", { "Ref": "AWS::AccountId" }, "${self:custom.inbound.name}" ] ]  }
   queue:
-    name: "scheduler-queue-${self:provider.stage}"
+    name: "scheduler-queue-v2-${self:provider.stage}"
     arn: { "Fn::Join": [":", ["arn:aws:sqs:${self:provider.region}", { "Ref": "AWS::AccountId" }, "${self:custom.queue.name}" ] ]  }
     url: { "Fn::Join": ["/", ["https://sqs.${self:provider.region}.amazonaws.com", { "Ref": "AWS::AccountId" }, "${self:custom.queue.name}" ] ]  }
   table:
-    arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events-${self:provider.stage}" ] ]  }
-    index:
-      name: "status-date-index"
-      arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events-${self:provider.stage}/index/${self:custom.table.index.name}" ] ]  }
-  scheduleFunction: "aws-scheduler-${self:provider.stage}-scheduler"
+    arn: { "Fn::Join": [":", ["arn:aws:dynamodb:${self:provider.region}", { "Ref": "AWS::AccountId" }, "table/aws-scheduler-events-v2-${self:provider.stage}" ] ]  }
+  scheduleFunction: "aws-scheduler-v2-${self:provider.stage}-scheduler"
   pythonRequirements:
     pythonBin: python3
 
@@ -64,10 +66,10 @@ functions:
                 - "${self:custom.inbound.name}"
           topicName: "${self:custom.inbound.name}"
     environment:
-      SCHEDULE_FUNCTION: "${self:custom.scheduleFunction}"
       ENFORCE_USER: true
+      QUEUE_URL: "${self:custom.queue.url}"
     tags:
-      name: 'aws-scheduler-consumer'
+      resource: aws-scheduler-consumer
 
   eventLoader:
     handler: handler.event_loader
@@ -75,9 +77,10 @@ functions:
       - schedule: rate(1 minute)
     environment:
       SCHEDULE_FUNCTION: "${self:custom.scheduleFunction}"
-      INDEX_NAME: "${self:custom.table.index.name}"
+    # when we have to wait for DynamoDB autoscaling we may exceed the default of 6s
+    timeout: 30
     tags:
-      name: 'aws-scheduler-event-loader'
+      resource: aws-scheduler-event-loader
 
   scheduler:
     handler: handler.scheduler
@@ -86,7 +89,7 @@ functions:
     # when we have to wait for DynamoDB autoscaling we may exceed the default of 6s
     timeout: 30
     tags:
-      name: 'aws-scheduler-scheduler'
+      resource: aws-scheduler-scheduler
 
   emitter:
     handler: handler.emitter
@@ -103,14 +106,7 @@ functions:
                 - "${self:custom.queue.name}"
     timeout: 20
     tags:
-      name: 'aws-scheduler-emitter'
-  cleanupFailed:
-    handler: cleanup_failed.handle
-    timeout: 300
-    tags:
-      name: 'aws-scheduler-cleanup'
-    environment:
-      INDEX_NAME: "${self:custom.table.index.name}"
+      resource: aws-scheduler-emitter
 
 plugins:
   - serverless-python-requirements

@@ -1,18 +1,14 @@
 # aws-scheduler
 
+This project is no longer actively maintained.
+
+**Warning**: If rebuilt some parts of the system. If you followed the setup below before 01.06.20202, you have to recreate the database. For zero downtime I suggest you deploy the new version, switch over the input topic and then let the old version run dry before switching it off.
+
 This project provides a solution to schedule large amounts of point in time events with a great time precision. See the Performance section for more details.
 
 The two interfaces are two SNS topics. One for input and one for output. You send a scheduling payload to the input topic and at the specified datetime you will receive your data at the output topic. See the Usage section on how to attach your functions.
 
 ![Service Overview](https://github.com/bahrmichael/aws-scheduler/raw/master/pictures/overview.png)
-
-You can deploy this yourself or use our SAAS offer.
-
-## SAAS Offer
-
-While we're ironing things out you can use our service free of charge. Just publish an event to `arn:aws:sns:us-east-1:256608350746:scheduler-input-prod`.  This topic is public so anyone can publish to it. 
-
-If you become a heavy user with more than 100.000 events per month we might want to get in touch with you, so make sure to fill out the `user` field with some way to contact you (email, twitter handle, ...).
 
 ## Usage
 

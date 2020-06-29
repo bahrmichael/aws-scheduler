@@ -12,7 +12,7 @@ if __name__ == '__main__':
         exit()
     stage = sys.argv[1]
 
-    name = f'scheduler-input-{stage}'
+    name = f'scheduler-input-v2-{stage}'
 
     print(f'Creating topic {name}')
     create_response = client.create_topic(

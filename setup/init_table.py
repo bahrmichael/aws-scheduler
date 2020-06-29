@@ -6,12 +6,12 @@ import boto3
 client = boto3.client('dynamodb')
 
 
-def events():
+def create_events_table():
     if len(sys.argv) < 2:
         print('Missing argument for stage.')
     stage = sys.argv[1]
 
-    name = f'aws-scheduler-events-{stage}'
+    name = f'aws-scheduler-events-v2-{stage}'
     while True:
         response = client.list_tables()
         if name in response['TableNames']:
@@ -23,46 +23,37 @@ def events():
         TableName=name,
         AttributeDefinitions=[
             {
-                'AttributeName': 'id',
-                'AttributeType': 'S'
+                'AttributeName': 'pk',
+                'AttributeType': 'N'
             },
             {
-                'AttributeName': 'status',
+                'AttributeName': 'sk',
                 'AttributeType': 'S'
-            },
-            {
-                'AttributeName': 'date',
-                'AttributeType': 'S'
-            },
+            }
         ],
         KeySchema=[
             {
-                'AttributeName': 'id',
+                'AttributeName': 'pk',
                 'KeyType': 'HASH'
-            }
-        ],
-        GlobalSecondaryIndexes=[
+            },
             {
-                'IndexName': 'status-date-index',
-                'KeySchema': [
-                    {
-                        'AttributeName': 'status',
-                        'KeyType': 'HASH'
-                    },
-                    {
-                        'AttributeName': 'date',
-                        'KeyType': 'RANGE'
-                    }
-                ],
-                'Projection': {
-                    'ProjectionType': 'ALL',
-                }
+                'AttributeName': 'sk',
+                'KeyType': 'RANGE'
             }
         ],
         BillingMode='PAY_PER_REQUEST',
+    )
+    print(f'Creating table ...')
+    client.get_waiter('table_exists').wait(TableName=name)
+    client.update_time_to_live(
+        TableName=name,
+        TimeToLiveSpecification={
+            'Enabled': True,
+            'AttributeName': 'time_to_live'
+        }
     )
     print('%s created' % name)
 
 
 if __name__ == '__main__':
-    events()
+    create_events_table()

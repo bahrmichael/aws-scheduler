@@ -12,7 +12,7 @@ if __name__ == '__main__':
         exit()
     stage = sys.argv[1]
 
-    name = f'scheduler-queue-{stage}'
+    name = f'scheduler-queue-v2-{stage}'
 
     print(f'Creating queue {name}')
     create_response = client.create_queue(

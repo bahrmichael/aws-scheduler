@@ -2,20 +2,49 @@ import json
 import time
 from datetime import datetime
 
-from db_helper import save_with_retry
-from model import EventWrapper
 from sns_client import publish_sns
+
+import boto3
+cloudwatch = boto3.client('cloudwatch')
+
+
+def put_metrics(metric, values, counts, unit='Count'):
+    cloudwatch.put_metric_data(
+        Namespace='serverless-scheduler',
+        MetricData=[
+            {
+                'MetricName': metric,
+                'Values': values,
+                'Counts': counts,
+                'Unit': unit
+            },
+        ]
+    )
+
+
+def put_metric(metric, value, unit='Count'):
+    cloudwatch.put_metric_data(
+        Namespace='serverless-scheduler',
+        MetricData=[
+            {
+                'MetricName': metric,
+                'Value': value,
+                'Unit': unit
+            },
+        ]
+    )
 
 
 def handle(items):
-    failed_ids = []
     print(f'Processing {len(items)} records')
 
     # sort the items so that we process the earliest first
     items.sort(key=lambda x: x['date'])
 
+    failed_events = []
+    delays_ms = []
     for item in items:
-        event_id = item['id']
+        event_id = item['sk']
 
         # the event we received may have been scheduled early
         scheduled_execution = datetime.fromisoformat(item['date'])
@@ -29,19 +58,29 @@ def handle(items):
 
         try:
             publish_sns(item['target'], item['payload'])
-            print('event.emitted %s' % (json.dumps({'id': event_id, 'timestamp': str(datetime.utcnow()), 'scheduled': str(scheduled_execution)})))
+            now = datetime.utcnow()
+            print('event.emitted %s' % (json.dumps({'sk': event_id, 'timestamp': str(now), 'scheduled': str(scheduled_execution)})))
+            actual_delay = int((now - scheduled_execution).total_seconds() * 1000)
+            print(f"{json.dumps({'event_id': event_id, 'timestamp': str(now), 'scheduled': str(scheduled_execution), 'delay': actual_delay, 'log_type': 'emit_delay'})}")
+            delays_ms.append(actual_delay)
         except Exception as e:
-            print(str(e))
-            failed_ids.append(event_id)
+            print(f"Failed to emit event {event_id}: {str(e)}")
+            failed_events.append(item)
 
-    failed_items = []
-    for event_id in failed_ids:
+    delays_grouped = {}
+    for delay in delays_ms:
+        if delay not in delays_grouped:
+            delays_grouped[delay] = 0
+        delays_grouped[delay] += 1
+
+    values = []
+    counts = []
+    for delay, count in delays_grouped.items():
+        values.append(delay)
+        counts.append(count)
+
+    for event in failed_events:
         try:
-            event = EventWrapper.get(hash_key=event_id)
-            event.status = 'FAILED'
-            failed_items.append(event)
-
-            # can happen if sqs does not respond
             if event.failure_topic is not None:
                 payload = {
                     'error': 'ERROR',
@@ -49,7 +88,4 @@ def handle(items):
                 }
                 publish_sns(event.failure_topic, json.dumps(payload))
         except Exception as e:
-            print(f'Failure update: Skipped {event_id} because it doesn\'t exist anymore')
-            print(str(e))
-
-    save_with_retry(failed_items)
+            print(f"Failed to emit event {event['sk']} to failure topic: {str(e)}")

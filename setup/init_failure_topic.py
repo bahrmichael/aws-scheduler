@@ -7,8 +7,8 @@ client = boto3.client('sns')
 
 if __name__ == '__main__':
 
-    if len(sys.argv) < 2:
-        print('Missing argument for stage.')
+    if len(sys.argv) < 3:
+        print('Missing argument for stage and role.')
         exit()
     stage = sys.argv[1]
 
@@ -22,10 +22,7 @@ if __name__ == '__main__':
     arn = create_response['TopicArn']
     print(f'Created topic {name} with arn {arn}')
 
-    if len(sys.argv) == 3:
-        role = sys.argv[2]
-    else:
-        role = 'arn:aws:sts::256608350746:assumed-role/aws-scheduler-prod-us-east-1-lambdaRole/aws-scheduler-prod-emitter'
+    role = sys.argv[2]
     print(f'Granting publish rights to {name} topic for role {role}')
 
     permission_response = client.add_permission(
