@@ -1,8 +1,8 @@
 # aws-scheduler
 
-This project is no longer actively maintained.
+**!! This project is no longer actively maintained. !!**
 
-**Warning**: If rebuilt some parts of the system. If you followed the setup below before 01.06.20202, you have to recreate the database. For zero downtime I suggest you deploy the new version, switch over the input topic and then let the old version run dry before switching it off.
+**Warning**: I've rebuilt some parts of the system. If you followed the setup below before 01.06.20202, you have to recreate the database. For zero downtime I suggest you deploy the new version, switch over the input topic and then let the old version run dry before switching it off.
 
 This project provides a solution to schedule large amounts of point in time events with a great time precision. See the Performance section for more details.
 
