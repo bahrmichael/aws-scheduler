@@ -1,4 +1,8 @@
-# aws-scheduler
+# New Point In Time Scheduler
+
+I've released a new scheduler service: [Check out the launch blog post](https://bahr.dev/2022/01/06/point-in-time-scheduler/).
+
+# Old aws-scheduler
 
 **!! This project is no longer actively maintained. !!**
 
